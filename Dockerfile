@@ -8,6 +8,10 @@
 # #####################################
 
 ARG VALHALLA_VERSION=3.1.4
+# Note: Use 84ef0fc79073a21cc29979c3e2c3ebb93ee30278 to generate tiles
+#  for busways: https://github.com/landonreed/valhalla/tree/busways
+#  Use ac824e5ca839d36a489e7123c5ed2920ecc3d674 (tagged 3.1.4 release)
+#  to generate tiles without support for highway=busway
 ARG VALHALLA_COMMIT=ac824e5ca839d36a489e7123c5ed2920ecc3d674
 ARG PRIME_SERVER_TAG=0.7.0
 FROM ubuntu:18.04
@@ -72,7 +76,7 @@ RUN git clone -v --branch ${PRIME_SERVER_TAG} https://github.com/kevinkreiser/pr
 # valhalla
 # NOTE: -DENABLE_BENCHMARKS=OFF is because of https://github.com/valhalla/valhalla/issues/3200
 # NOTE: -ENABLE_SINGLE_FILES_WERROR=OFF because of https://github.com/valhalla/valhalla/issues/3157
-RUN git clone https://github.com/valhalla/valhalla.git && (cd valhalla && git checkout ${VALHALLA_COMMIT} -b build && git submodule update --init --recursive && mkdir -p build && cd build && cmake .. -DPKG_CONFIG_PATH=/usr/local/lib/pkgconfig -DCMAKE_BUILD_TYPE=Release -DENABLE_NODE_BINDINGS=OFF -DENABLE_BENCHMARKS=OFF -DENABLE_SINGLE_FILES_WERROR=OFF && make -j2 install) && rm -rf /src
+RUN git clone https://github.com/landonreed/valhalla.git && (cd valhalla && git checkout ${VALHALLA_COMMIT} -b build && git submodule update --init --recursive && mkdir -p build && cd build && cmake .. -DPKG_CONFIG_PATH=/usr/local/lib/pkgconfig -DCMAKE_BUILD_TYPE=Release -DENABLE_NODE_BINDINGS=OFF -DENABLE_BENCHMARKS=OFF -DENABLE_SINGLE_FILES_WERROR=OFF && make -j2 install) && rm -rf /src
 
 # #####################################
 # ############ STAGE 2 ################
@@ -91,12 +95,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y apt-transport-h
 
 # Install apt packages packages
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    libboost-python1.62 \
-    libboost-filesystem1.62 \
-    libboost-iostreams1.62 \
-    libboost-regex1.62 \
-    libboost-thread1.62 \
-    libboost-program-options1.62 \
+    libboost-all-dev \
     libluajit-5.1-2 \
     libprotoc10 \
     libprotobuf-lite10 \
@@ -125,6 +124,7 @@ ENV WORKDIR=/build DATADIR=/data VALHALLA_CONFIG=/build/valhalla.json
 RUN mkdir -p ${WORKDIR} ${DATADIR}
 RUN valhalla_build_config > ${VALHALLA_CONFIG}
 ADD alias_tz.csv ${WORKDIR}
+ADD build-tiles.sh ${WORKDIR}
 
-# Default command
+# Default command to run valhalla API
 CMD valhalla_service ${VALHALLA_CONFIG} ${VALHALLA_CONCURRENCY}
